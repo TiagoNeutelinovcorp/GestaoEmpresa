@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak] {
+    display: none;
+}
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #3f3f46 #0a0a0a;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+    background: #0a0a0a;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 9999px;
+    border: 2px solid #0a0a0a;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
+}
+
+.calendar-dark .fc {
+    --fc-border-color: #262626;
+    --fc-page-bg-color: #0a0a0a;
+    --fc-neutral-bg-color: #171717;
+    --fc-list-event-hover-bg-color: #262626;
+    --fc-today-bg-color: rgba(255, 255, 255, 0.08);
+    --fc-event-bg-color: #3f3f46;
+    --fc-event-border-color: #52525b;
+    --fc-event-text-color: #fafafa;
+    color: #f5f5f5;
+}
+
+.calendar-dark .fc .fc-button {
+    background: #262626;
+    border-color: #262626;
+}
+
+.calendar-dark .fc .fc-button:hover,
+.calendar-dark .fc .fc-button:focus {
+    background: #404040;
+    border-color: #404040;
+}
+
+.calendar-dark .fc .fc-col-header-cell-cushion,
+.calendar-dark .fc .fc-daygrid-day-number {
+    color: #d4d4d8;
+}
