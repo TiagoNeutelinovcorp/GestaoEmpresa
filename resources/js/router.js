@@ -21,6 +21,7 @@ import ContaCorrenteClientesPage from './Pages/Financeiro/ContaCorrenteClientes.
 import ArquivoDigitalPage from './Pages/ArquivoDigital/Index.vue'
 import OrdensTrabalhoPage from './Pages/OrdensTrabalho/Index.vue'
 import PerfilPage from './Pages/Perfil/Index.vue'
+import TenantWorkspacePage from './Pages/Tenant/Workspace.vue'
 import { useAuth } from './composables/useAuth'
 import AccessDenied from './Pages/Auth/AccessDenied.vue'
 
@@ -41,6 +42,7 @@ const routes = [
   { path: '/financeiro/faturas-fornecedores', component: FaturasFornecedores, meta: { permission: 'financeiro.read' } },
   { path: '/arquivo-digital', component: ArquivoDigitalPage, meta: { permission: 'arquivo_digital.read' } },
   { path: '/perfil', component: PerfilPage },
+  { path: '/tenant/workspace', component: TenantWorkspacePage },
   { path: '/acessos/utilizadores', component: UtilizadoresPage, meta: { permission: 'utilizadores.read' } },
   { path: '/acessos/permissoes', component: PermissoesPage, meta: { permission: 'permissoes.read' } },
   { path: '/configuracoes/paises', component: PaisesPage, meta: { permission: 'configuracoes.read' } },

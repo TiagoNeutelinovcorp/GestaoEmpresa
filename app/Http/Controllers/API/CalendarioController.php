@@ -8,6 +8,11 @@ use Illuminate\Support\Facades\DB;
 
 class CalendarioController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index(Request $request)
     {
         $query = DB::table('calendario_eventos')
@@ -21,7 +26,8 @@ class CalendarioController extends Controller
                 'entidades.nome as entidade_nome',
                 'calendario_tipos.nome as tipo_nome',
                 'calendario_acoes.nome as acao_nome'
-            );
+            )
+            ->where('calendario_eventos.tenant_id', $this->tenantId());
 
         if ($request->filled('user_id')) {
             $query->where('calendario_eventos.user_id', $request->integer('user_id'));
@@ -51,6 +57,7 @@ class CalendarioController extends Controller
 
         $id = DB::table('calendario_eventos')->insertGetId([
             ...$data,
+            'tenant_id' => $this->tenantId(),
             'duracao_minutos' => $data['duracao_minutos'] ?? 60,
             'partilha' => $data['partilha'] ?? false,
             'conhecimento' => $data['conhecimento'] ?? false,
@@ -59,6 +66,12 @@ class CalendarioController extends Controller
             'updated_at' => now(),
         ]);
 
-        return response()->json(DB::table('calendario_eventos')->where('id', $id)->first(), 201);
+        return response()->json(
+            DB::table('calendario_eventos')
+                ->where('tenant_id', $this->tenantId())
+                ->where('id', $id)
+                ->first(),
+            201
+        );
     }
 }

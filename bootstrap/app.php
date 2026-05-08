@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'force.https' => \App\Http\Middleware\ForceHttps::class,
             'activity.log' => \App\Http\Middleware\LogUserActivity::class,
             'api.permission' => \App\Http\Middleware\EnsureApiPermission::class,
+            'tenant.context' => \App\Http\Middleware\ResolveTenantContext::class,
         ]);
 
         $middleware->web(append: [

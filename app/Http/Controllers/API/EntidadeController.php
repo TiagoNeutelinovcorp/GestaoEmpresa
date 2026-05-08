@@ -8,9 +8,15 @@ use App\Models\Pais;
 use App\Services\ViesService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class EntidadeController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     private function defaultPaisId(): ?int
     {
         return Pais::query()->where('sigla', 'PT')->value('id');
@@ -109,7 +115,12 @@ class EntidadeController extends Controller
     {
         $request->validate([
             'tipo' => 'required|in:cliente,fornecedor,ambos',
-            'nif' => 'required|string|size:9|unique:entidades,nif',
+            'nif' => [
+                'required',
+                'string',
+                'size:9',
+                Rule::unique('entidades', 'nif')->where('tenant_id', $this->tenantId()),
+            ],
             'nome' => 'required|string|max:255',
             'morada' => 'nullable|string',
             'codigo_postal' => 'nullable|regex:/^\d{4}-\d{3}$/',
@@ -128,6 +139,7 @@ class EntidadeController extends Controller
             DB::beginTransaction();
 
             $entidade = Entidade::create([
+                'tenant_id' => $this->tenantId(),
                 'tipo' => $request->tipo,
                 'numero' => $this->gerarNumero(),
                 'nif' => $request->nif,
@@ -174,7 +186,12 @@ class EntidadeController extends Controller
 
         $request->validate([
             'tipo' => 'sometimes|in:cliente,fornecedor,ambos',
-            'nif' => "sometimes|string|size:9|unique:entidades,nif,{$id}",
+            'nif' => [
+                'sometimes',
+                'string',
+                'size:9',
+                Rule::unique('entidades', 'nif')->where('tenant_id', $this->tenantId())->ignore($id),
+            ],
             'nome' => 'sometimes|string|max:255',
             'morada' => 'nullable|string',
             'codigo_postal' => 'nullable|regex:/^\d{4}-\d{3}$/',

@@ -7,9 +7,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class FaturaFornecedorController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index()
     {
         return response()->json(
@@ -17,6 +23,7 @@ class FaturaFornecedorController extends Controller
                 ->join('entidades', 'entidades.id', '=', 'faturas_fornecedores.fornecedor_id')
                 ->leftJoin('encomendas_fornecedores', 'encomendas_fornecedores.id', '=', 'faturas_fornecedores.encomenda_fornecedor_id')
                 ->select('faturas_fornecedores.*', 'entidades.nome as fornecedor_nome', 'encomendas_fornecedores.numero as encomenda_numero')
+                ->where('faturas_fornecedores.tenant_id', $this->tenantId())
                 ->whereNull('faturas_fornecedores.deleted_at')
                 ->latest('faturas_fornecedores.id')
                 ->paginate(15)
@@ -26,7 +33,7 @@ class FaturaFornecedorController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'numero' => ['required', 'string', 'max:100', 'unique:faturas_fornecedores,numero'],
+            'numero' => ['required', 'string', 'max:100', Rule::unique('faturas_fornecedores', 'numero')->where('tenant_id', $this->tenantId())],
             'data_fatura' => ['required', 'date'],
             'data_vencimento' => ['nullable', 'date'],
             'fornecedor_id' => ['required', 'exists:entidades,id'],
@@ -40,12 +47,13 @@ class FaturaFornecedorController extends Controller
 
         $id = DB::table('faturas_fornecedores')->insertGetId([
             ...collect($data)->except(['enviar_comprovativo'])->toArray(),
+            'tenant_id' => $this->tenantId(),
             'estado' => $data['estado'] ?? 'pendente_pagamento',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        $invoice = DB::table('faturas_fornecedores')->where('id', $id)->first();
+        $invoice = DB::table('faturas_fornecedores')->where('tenant_id', $this->tenantId())->where('id', $id)->first();
         $this->sendProofIfNeeded($invoice, (bool) ($data['enviar_comprovativo'] ?? false));
 
         return response()->json($invoice, 201);
@@ -65,12 +73,12 @@ class FaturaFornecedorController extends Controller
             'enviar_comprovativo' => ['boolean'],
         ]);
 
-        DB::table('faturas_fornecedores')->where('id', $id)->update([
+        DB::table('faturas_fornecedores')->where('tenant_id', $this->tenantId())->where('id', $id)->update([
             ...collect($data)->except(['enviar_comprovativo'])->toArray(),
             'updated_at' => now(),
         ]);
 
-        $invoice = DB::table('faturas_fornecedores')->where('id', $id)->first();
+        $invoice = DB::table('faturas_fornecedores')->where('tenant_id', $this->tenantId())->where('id', $id)->first();
         $this->sendProofIfNeeded($invoice, (bool) ($data['enviar_comprovativo'] ?? false));
 
         return response()->json($invoice);
@@ -82,7 +90,10 @@ class FaturaFornecedorController extends Controller
             return;
         }
 
-        $supplier = DB::table('entidades')->where('id', $invoice->fornecedor_id)->first();
+        $supplier = DB::table('entidades')
+            ->where('tenant_id', $this->tenantId())
+            ->where('id', $invoice->fornecedor_id)
+            ->first();
         if (! $supplier || ! $supplier->email) {
             return;
         }

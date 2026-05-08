@@ -8,9 +8,19 @@ use Illuminate\Support\Facades\DB;
 
 class ContaBancariaController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index()
     {
-        return response()->json(DB::table('contas_bancarias')->orderBy('banco')->paginate(20));
+        return response()->json(
+            DB::table('contas_bancarias')
+                ->where('tenant_id', $this->tenantId())
+                ->orderBy('banco')
+                ->paginate(20)
+        );
     }
 
     public function store(Request $request)
@@ -24,11 +34,18 @@ class ContaBancariaController extends Controller
 
         $id = DB::table('contas_bancarias')->insertGetId([
             ...$data,
+            'tenant_id' => $this->tenantId(),
             'estado' => $data['estado'] ?? true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        return response()->json(DB::table('contas_bancarias')->where('id', $id)->first(), 201);
+        return response()->json(
+            DB::table('contas_bancarias')
+                ->where('tenant_id', $this->tenantId())
+                ->where('id', $id)
+                ->first(),
+            201
+        );
     }
 }

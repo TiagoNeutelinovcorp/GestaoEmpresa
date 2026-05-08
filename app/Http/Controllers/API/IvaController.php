@@ -8,9 +8,14 @@ use Illuminate\Support\Facades\DB;
 
 class IvaController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index()
     {
-        return response()->json(DB::table('ivas')->orderBy('percentagem')->get());
+        return response()->json(DB::table('ivas')->where('tenant_id', $this->tenantId())->orderBy('percentagem')->get());
     }
 
     public function store(Request $request)
@@ -23,12 +28,13 @@ class IvaController extends Controller
 
         $id = DB::table('ivas')->insertGetId([
             ...$data,
+            'tenant_id' => $this->tenantId(),
             'estado' => $data['estado'] ?? true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        return response()->json(DB::table('ivas')->find($id), 201);
+        return response()->json(DB::table('ivas')->where('tenant_id', $this->tenantId())->find($id), 201);
     }
 
     public function update(Request $request, int $id)
@@ -39,14 +45,14 @@ class IvaController extends Controller
             'estado' => ['boolean'],
         ]);
 
-        DB::table('ivas')->where('id', $id)->update([...$data, 'updated_at' => now()]);
+        DB::table('ivas')->where('tenant_id', $this->tenantId())->where('id', $id)->update([...$data, 'updated_at' => now()]);
 
-        return response()->json(DB::table('ivas')->find($id));
+        return response()->json(DB::table('ivas')->where('tenant_id', $this->tenantId())->find($id));
     }
 
     public function destroy(int $id)
     {
-        DB::table('ivas')->where('id', $id)->delete();
+        DB::table('ivas')->where('tenant_id', $this->tenantId())->where('id', $id)->delete();
 
         return response()->json(['message' => 'IVA removido com sucesso.']);
     }

@@ -20,23 +20,45 @@ use App\Http\Controllers\API\FaturaFornecedorController;
 use App\Http\Controllers\API\IvaController;
 use App\Http\Controllers\API\LookupController;
 use App\Http\Controllers\API\PropostaController;
+use App\Http\Controllers\API\TenantController;
+use App\Http\Controllers\API\TenantBillingController;
+use App\Http\Controllers\API\TenantOnboardingController;
 use Spatie\Permission\Models\Permission;
 
 // Rotas públicas (VIES)
 Route::post('/vies/consultar', [ViesController::class, 'consultar']);
 
 // Rotas protegidas por autenticação web (sessão)
-Route::middleware(['web', 'auth', 'activity.log', 'api.permission'])->prefix('v1')->group(function () {
+Route::middleware(['web', 'auth', 'tenant.context', 'activity.log', 'api.permission'])->prefix('v1')->group(function () {
     Route::get('me', function (\Illuminate\Http\Request $request) {
         $user = $request->user();
+        $activeTenantId = (int) ($request->attributes->get('tenant_id') ?? 0);
+        $tenants = $user->tenants()
+            ->select('tenants.id', 'tenants.nome', 'tenants.slug')
+            ->orderBy('tenants.nome')
+            ->get();
         return response()->json([
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
             'roles' => $user->getRoleNames()->values(),
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),
+            'tenants' => $tenants,
+            'active_tenant' => $tenants->firstWhere('id', $activeTenantId),
         ]);
     });
+
+    Route::get('tenants', [TenantController::class, 'index']);
+    Route::post('tenants', [TenantController::class, 'store']);
+    Route::post('tenants/switch', [TenantController::class, 'switch']);
+    Route::get('tenant/onboarding', [TenantOnboardingController::class, 'show']);
+    Route::put('tenant/onboarding', [TenantOnboardingController::class, 'update']);
+    Route::get('billing/plans', [TenantBillingController::class, 'plans']);
+    Route::get('billing/subscription', [TenantBillingController::class, 'subscription']);
+    Route::get('billing/usage', [TenantBillingController::class, 'usage']);
+    Route::post('billing/change-plan', [TenantBillingController::class, 'changePlan']);
+    Route::post('billing/cancel', [TenantBillingController::class, 'cancel']);
+    Route::get('billing/change-logs', [TenantBillingController::class, 'changeLogs']);
 
     // Países
     Route::apiResource('paises', PaisController::class);

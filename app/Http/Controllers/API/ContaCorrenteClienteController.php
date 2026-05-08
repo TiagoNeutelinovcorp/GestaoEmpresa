@@ -8,12 +8,19 @@ use Illuminate\Support\Facades\DB;
 
 class ContaCorrenteClienteController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index()
     {
         return response()->json(
             DB::table('conta_corrente_clientes')
                 ->join('entidades', 'entidades.id', '=', 'conta_corrente_clientes.cliente_id')
                 ->select('conta_corrente_clientes.*', 'entidades.nome as cliente_nome')
+                ->where('conta_corrente_clientes.tenant_id', $this->tenantId())
+                ->where('entidades.tenant_id', $this->tenantId())
                 ->latest('conta_corrente_clientes.id')
                 ->paginate(20)
         );
@@ -31,12 +38,19 @@ class ContaCorrenteClienteController extends Controller
 
         $id = DB::table('conta_corrente_clientes')->insertGetId([
             ...$data,
+            'tenant_id' => $this->tenantId(),
             'debito' => $data['debito'] ?? 0,
             'credito' => $data['credito'] ?? 0,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        return response()->json(DB::table('conta_corrente_clientes')->where('id', $id)->first(), 201);
+        return response()->json(
+            DB::table('conta_corrente_clientes')
+                ->where('tenant_id', $this->tenantId())
+                ->where('id', $id)
+                ->first(),
+            201
+        );
     }
 }

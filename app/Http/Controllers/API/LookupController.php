@@ -8,9 +8,19 @@ use Illuminate\Support\Facades\DB;
 
 class LookupController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function list(string $type)
     {
-        return response()->json(DB::table($this->table($type))->orderBy('nome')->get());
+        return response()->json(
+            DB::table($this->table($type))
+                ->where('tenant_id', $this->tenantId())
+                ->orderBy('nome')
+                ->get()
+        );
     }
 
     public function store(Request $request, string $type)
@@ -22,17 +32,26 @@ class LookupController extends Controller
 
         $id = DB::table($this->table($type))->insertGetId([
             'nome' => $data['nome'],
+            'tenant_id' => $this->tenantId(),
             'estado' => $data['estado'] ?? true,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        return response()->json(DB::table($this->table($type))->find($id), 201);
+        return response()->json(
+            DB::table($this->table($type))
+                ->where('tenant_id', $this->tenantId())
+                ->find($id),
+            201
+        );
     }
 
     public function destroy(string $type, int $id)
     {
-        DB::table($this->table($type))->where('id', $id)->delete();
+        DB::table($this->table($type))
+            ->where('tenant_id', $this->tenantId())
+            ->where('id', $id)
+            ->delete();
 
         return response()->json(['message' => 'Registo removido com sucesso.']);
     }

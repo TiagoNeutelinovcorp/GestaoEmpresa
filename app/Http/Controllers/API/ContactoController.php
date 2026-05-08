@@ -5,9 +5,15 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Contacto;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class ContactoController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index(Request $request)
     {
         $query = Contacto::query()->with(['entidade', 'funcao']);
@@ -22,7 +28,12 @@ class ContactoController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'numero' => ['nullable', 'string', 'max:20', 'unique:contactos,numero'],
+            'numero' => [
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('contactos', 'numero')->where('tenant_id', $this->tenantId()),
+            ],
             'entidade_id' => ['required', 'exists:entidades,id'],
             'nome' => ['required', 'string', 'max:255'],
             'apelido' => ['nullable', 'string', 'max:255'],

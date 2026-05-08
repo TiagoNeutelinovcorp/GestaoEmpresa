@@ -4,6 +4,31 @@
       <div class="flex h-16 items-center justify-between px-6">
         <h1 class="text-xl font-bold text-neutral-100">Gestão App</h1>
         <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 rounded-md border border-neutral-800 bg-neutral-950 px-2 py-1">
+            <span class="text-xs text-neutral-400">Tenant</span>
+            <select
+              v-model="selectedTenantId"
+              class="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm text-neutral-100"
+              @change="onSwitchTenant"
+            >
+              <option v-for="tenant in tenants" :key="tenant.id" :value="String(tenant.id)">
+                {{ tenant.nome }}
+              </option>
+            </select>
+            <button
+              class="rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 hover:bg-neutral-800"
+              @click="onCreateTenant"
+            >
+              + Tenant
+            </button>
+          </div>
+          <a
+            href="/tenant/workspace"
+            class="inline-flex items-center gap-2 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-800"
+            title="Tenant Workspace"
+          >
+            <span>Tenant</span>
+          </a>
           <a
             href="/perfil"
             class="inline-flex items-center gap-2 rounded-md border border-neutral-700 bg-neutral-900 px-3 py-1.5 text-sm text-neutral-100 hover:bg-neutral-800"
@@ -40,13 +65,36 @@
         <slot />
       </main>
     </div>
+
+    <FormModal
+      :is-open="tenantModalOpen"
+      title="Novo Tenant"
+      confirm-text="Criar Tenant"
+      @close="closeTenantModal"
+      @confirm="confirmCreateTenant"
+    >
+      <div class="space-y-3">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-neutral-200">Nome do tenant</label>
+          <Input v-model="tenantForm.nome" placeholder="Ex.: Empresa Lisboa" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-neutral-200">Slug (opcional)</label>
+          <Input v-model="tenantForm.slug" placeholder="ex-empresa-lisboa" />
+          <p class="mt-1 text-xs text-neutral-400">Se vazio, é gerado automaticamente.</p>
+        </div>
+      </div>
+    </FormModal>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import { useToast } from '@/composables/useToast'
+import FormModal from '@/Components/ui/FormModal.vue'
+import Input from '@/Components/ui/Input.vue'
 
 const menuItems = ref([
   { name: 'Dashboard', path: '/dashboard', permission: 'dashboard.read' },
@@ -74,10 +122,56 @@ const menuItems = ref([
   { name: 'Config - Empresa', path: '/configuracoes/empresa', permission: 'configuracoes.read' },
 ])
 
-const { permissions, loadAuth } = useAuth()
+const selectedTenantId = ref('')
+const tenantModalOpen = ref(false)
+const tenantForm = ref({ nome: '', slug: '' })
+const { permissions, tenants, activeTenant, loadAuth, switchTenant, createTenant } = useAuth()
+const { pushToast } = useToast()
 const visibleMenuItems = computed(() =>
   menuItems.value.filter((item) => item.permission === null || permissions.value.includes(item.permission))
 )
+
+watch(activeTenant, (value) => {
+  selectedTenantId.value = value?.id ? String(value.id) : ''
+}, { immediate: true })
+
+const onSwitchTenant = async () => {
+  if (!selectedTenantId.value) return
+  try {
+    await switchTenant(selectedTenantId.value)
+    window.location.reload()
+  } catch (error) {
+    pushToast({ type: 'error', title: 'Tenant', message: error?.response?.data?.message || 'Erro ao trocar de tenant.' })
+  }
+}
+
+const onCreateTenant = async () => {
+  tenantModalOpen.value = true
+}
+
+const closeTenantModal = () => {
+  tenantModalOpen.value = false
+  tenantForm.value = { nome: '', slug: '' }
+}
+
+const confirmCreateTenant = async () => {
+  if (!tenantForm.value.nome?.trim()) {
+    pushToast({ type: 'warning', title: 'Tenant', message: 'Indica o nome do tenant.' })
+    return
+  }
+
+  try {
+    await createTenant({
+      nome: tenantForm.value.nome.trim(),
+      slug: tenantForm.value.slug?.trim() || null
+    })
+    pushToast({ type: 'success', title: 'Tenant', message: 'Tenant criado com sucesso.' })
+    closeTenantModal()
+    window.location.reload()
+  } catch (error) {
+    pushToast({ type: 'error', title: 'Tenant', message: error?.response?.data?.message || 'Erro ao criar tenant.' })
+  }
+}
 
 onMounted(() => {
   loadAuth()

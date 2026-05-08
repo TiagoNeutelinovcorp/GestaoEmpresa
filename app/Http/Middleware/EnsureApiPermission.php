@@ -54,6 +54,7 @@ class EnsureApiPermission
 
         return match ($first) {
             'me' => null,
+            'tenants' => null,
             'entidades' => ['clientes', 'fornecedores'],
             'contactos' => 'contactos',
             'propostas' => 'propostas',

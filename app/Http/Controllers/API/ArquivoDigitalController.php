@@ -9,12 +9,18 @@ use Illuminate\Support\Facades\Storage;
 
 class ArquivoDigitalController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index()
     {
         return response()->json(
             DB::table('arquivo_digital')
                 ->leftJoin('entidades', 'entidades.id', '=', 'arquivo_digital.entidade_id')
                 ->select('arquivo_digital.*', 'entidades.nome as entidade_nome')
+                ->where('arquivo_digital.tenant_id', $this->tenantId())
                 ->latest('arquivo_digital.id')
                 ->paginate(20)
         );
@@ -33,6 +39,7 @@ class ArquivoDigitalController extends Controller
 
         $id = DB::table('arquivo_digital')->insertGetId([
             'nome' => $data['nome'],
+            'tenant_id' => $this->tenantId(),
             'path' => $path,
             'mime_type' => $file->getClientMimeType(),
             'size' => $file->getSize(),
@@ -41,12 +48,21 @@ class ArquivoDigitalController extends Controller
             'updated_at' => now(),
         ]);
 
-        return response()->json(DB::table('arquivo_digital')->where('id', $id)->first(), 201);
+        return response()->json(
+            DB::table('arquivo_digital')
+                ->where('tenant_id', $this->tenantId())
+                ->where('id', $id)
+                ->first(),
+            201
+        );
     }
 
     public function download(int $id)
     {
-        $doc = DB::table('arquivo_digital')->where('id', $id)->first();
+        $doc = DB::table('arquivo_digital')
+            ->where('tenant_id', $this->tenantId())
+            ->where('id', $id)
+            ->first();
         abort_if(! $doc, 404);
 
         return Storage::disk('local')->download($doc->path, $doc->nome);

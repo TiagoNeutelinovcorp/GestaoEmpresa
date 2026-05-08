@@ -34,6 +34,7 @@ class User extends Authenticatable
         'email',
         'telemovel',
         'estado',
+        'preferred_tenant_id',
         'password',
     ];
 
@@ -70,5 +71,12 @@ class User extends Authenticatable
             'estado' => 'boolean',
             'password' => 'hashed',
         ];
+    }
+
+    public function tenants()
+    {
+        return $this->belongsToMany(Tenant::class, 'tenant_user')
+            ->withPivot(['role'])
+            ->withTimestamps();
     }
 }

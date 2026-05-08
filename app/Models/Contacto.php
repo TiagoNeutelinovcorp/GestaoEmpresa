@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Contacto extends Model
 {
+    use BelongsToTenant;
     use SoftDeletes;
 
     protected $fillable = [
-        'numero', 'entidade_id', 'nome', 'apelido', 'funcao_id',
+        'tenant_id', 'numero', 'entidade_id', 'nome', 'apelido', 'funcao_id',
         'telefone', 'telemovel', 'email', 'consentimento_rgpd',
         'observacoes', 'estado'
     ];

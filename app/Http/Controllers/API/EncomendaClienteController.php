@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 class EncomendaClienteController extends Controller
 {
+    private function tenantId(): int
+    {
+        return (int) app('tenant.id');
+    }
+
     public function index()
     {
         return response()->json(
@@ -16,6 +21,7 @@ class EncomendaClienteController extends Controller
                 ->join('entidades', 'entidades.id', '=', 'encomendas_clientes.cliente_id')
                 ->leftJoin('propostas', 'propostas.id', '=', 'encomendas_clientes.proposta_id')
                 ->select('encomendas_clientes.*', 'entidades.nome as cliente_nome', 'propostas.validade')
+                ->where('encomendas_clientes.tenant_id', $this->tenantId())
                 ->whereNull('encomendas_clientes.deleted_at')
                 ->latest('encomendas_clientes.id')
                 ->paginate(15)
@@ -38,7 +44,8 @@ class EncomendaClienteController extends Controller
 
         return DB::transaction(function () use ($data) {
             $id = DB::table('encomendas_clientes')->insertGetId([
-                'numero' => sprintf('ENC-C-%06d', DB::table('encomendas_clientes')->count() + 1),
+                'numero' => sprintf('ENC-C-%06d', DB::table('encomendas_clientes')->where('tenant_id', $this->tenantId())->count() + 1),
+                'tenant_id' => $this->tenantId(),
                 'cliente_id' => $data['cliente_id'],
                 'data_encomenda' => $data['data_encomenda'] ?? now()->toDateString(),
                 'estado' => $data['estado'] ?? 'rascunho',
@@ -54,6 +61,7 @@ class EncomendaClienteController extends Controller
                 $subtotal = $qtd * $preco;
                 $total += $subtotal;
                 DB::table('encomenda_cliente_linhas')->insert([
+                    'tenant_id' => $this->tenantId(),
                     'encomenda_cliente_id' => $id,
                     'artigo_id' => $line['artigo_id'],
                     'fornecedor_id' => $line['fornecedor_id'] ?? null,
@@ -65,20 +73,27 @@ class EncomendaClienteController extends Controller
                 ]);
             }
 
-            DB::table('encomendas_clientes')->where('id', $id)->update(['valor_total' => $total, 'updated_at' => now()]);
+            DB::table('encomendas_clientes')->where('tenant_id', $this->tenantId())->where('id', $id)->update(['valor_total' => $total, 'updated_at' => now()]);
 
-            return response()->json(DB::table('encomendas_clientes')->where('id', $id)->first(), 201);
+            return response()->json(
+                DB::table('encomendas_clientes')->where('tenant_id', $this->tenantId())->where('id', $id)->first(),
+                201
+            );
         });
     }
 
     public function convertToSupplierOrders(int $id)
     {
         return DB::transaction(function () use ($id) {
-            $encomenda = DB::table('encomendas_clientes')->where('id', $id)->first();
+            $encomenda = DB::table('encomendas_clientes')->where('tenant_id', $this->tenantId())->where('id', $id)->first();
             abort_if(! $encomenda, 404, 'Encomenda não encontrada.');
             abort_if($encomenda->estado !== 'fechado', 422, 'Só pode converter encomendas no estado fechado.');
 
-            $lines = DB::table('encomenda_cliente_linhas')->where('encomenda_cliente_id', $id)->get()->groupBy('fornecedor_id');
+            $lines = DB::table('encomenda_cliente_linhas')
+                ->where('tenant_id', $this->tenantId())
+                ->where('encomenda_cliente_id', $id)
+                ->get()
+                ->groupBy('fornecedor_id');
 
             $created = [];
             foreach ($lines as $fornecedorId => $items) {
@@ -87,7 +102,8 @@ class EncomendaClienteController extends Controller
                 }
 
                 $supplierOrderId = DB::table('encomendas_fornecedores')->insertGetId([
-                    'numero' => sprintf('ENC-F-%06d', DB::table('encomendas_fornecedores')->count() + 1),
+                    'numero' => sprintf('ENC-F-%06d', DB::table('encomendas_fornecedores')->where('tenant_id', $this->tenantId())->count() + 1),
+                    'tenant_id' => $this->tenantId(),
                     'data_encomenda' => now()->toDateString(),
                     'fornecedor_id' => $fornecedorId,
                     'encomenda_cliente_id' => $id,
@@ -100,6 +116,7 @@ class EncomendaClienteController extends Controller
                 $total = 0;
                 foreach ($items as $item) {
                     DB::table('encomenda_fornecedor_linhas')->insert([
+                        'tenant_id' => $this->tenantId(),
                         'encomenda_fornecedor_id' => $supplierOrderId,
                         'artigo_id' => $item->artigo_id,
                         'quantidade' => $item->quantidade,
@@ -111,7 +128,7 @@ class EncomendaClienteController extends Controller
                     $total += (float) $item->subtotal;
                 }
 
-                DB::table('encomendas_fornecedores')->where('id', $supplierOrderId)->update(['valor_total' => $total, 'updated_at' => now()]);
+                DB::table('encomendas_fornecedores')->where('tenant_id', $this->tenantId())->where('id', $supplierOrderId)->update(['valor_total' => $total, 'updated_at' => now()]);
                 $created[] = $supplierOrderId;
             }
 
@@ -127,6 +144,7 @@ class EncomendaClienteController extends Controller
         $encomenda = DB::table('encomendas_clientes')
             ->leftJoin('entidades as clientes', 'clientes.id', '=', 'encomendas_clientes.cliente_id')
             ->select('encomendas_clientes.*', 'clientes.nome as cliente_nome')
+            ->where('encomendas_clientes.tenant_id', $this->tenantId())
             ->where('encomendas_clientes.id', $id)
             ->first();
         abort_if(! $encomenda, 404);
@@ -135,6 +153,7 @@ class EncomendaClienteController extends Controller
             ->join('artigos', 'artigos.id', '=', 'encomenda_cliente_linhas.artigo_id')
             ->leftJoin('entidades as fornecedores', 'fornecedores.id', '=', 'encomenda_cliente_linhas.fornecedor_id')
             ->select('encomenda_cliente_linhas.*', 'artigos.nome as artigo_nome', 'fornecedores.nome as fornecedor_nome')
+            ->where('encomenda_cliente_linhas.tenant_id', $this->tenantId())
             ->where('encomenda_cliente_linhas.encomenda_cliente_id', $id)
             ->get();
 
